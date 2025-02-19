@@ -1,0 +1,80 @@
+#!/usr/bin/env ruby
+
+require 'thor'
+require_relative '../lib/freeagent'
+
+def match type, collection, needle, *values
+  found = collection.select do |item|
+    values.map(&:to_proc).any? {|v| v.call(item) == needle }
+  end
+  if found.none?
+    possibles = collection.product(values).map {|item, value| value.to_proc.call(item).to_s }
+    raise ArgumentError, "No #{type} matching '#{needle}' found, expecting one from #{possibles}"
+  end
+  unless found.one?
+    raise ArgumentError, "Ambiguous #{type}: could be #{found.map(&:url).join(', ')}"
+  end
+  found.first
+end
+
+module Freeagent
+  class Timeslips < Thor
+    no_commands do
+      def api
+        @api ||= API.new
+      end
+    end
+
+    desc 'list USER PROJECT TASK FROM TO', "List timeslips"
+    def list user, project, task, from, to
+      from = Date::parse from
+      to = Date::parse to
+      user = match :user, api.users, user, :first_name, :last_name, :email
+      project = match :project, api.projects, project, :name
+      task = match :task, api.tasks(project), task, :name
+
+      api.timeslips(user, project, task, from, to).each do |timeslip|
+        puts [Date::parse(timeslip.dated_on).strftime('%a %d %b %Y'), user.email, project.name, task.name, timeslip.hours].join("\t")
+      end
+    end
+
+    desc 'create USER PROJECT TASK FROM TO', "Create timeslips"
+    method_option :hours, aliases: '-h', type: :numeric, default: 8, desc: "Number of hours per day"
+    method_option :weekends, aliases: '-w', type: :boolean, default: false, desc: "Create timeslips on Saturdays and Sundays"
+    def create user, project, task, from, to
+      from = Date::parse from
+      to = Date::parse to
+      user = match :user, api.users, user, :first_name, :last_name, :email
+      project = match :project, api.projects, project, :name
+      task = match :task, api.tasks(project), task, :name
+
+      puts "Creating timeslips for #{user.first_name} #{user.last_name} for task '#{task.name}' in project '#{project.name}' between #{from} and #{to} inclusive"
+      timeslips = from.step(to).map do |date|
+        next if (date.saturday? || date.sunday?) && !options[:weekends]
+        {'task' => task.url, 'project' => project.url, 'user' => user.url, 'dated_on' => date.to_s, 'hours' => options[:hours]}
+      end.reject(&:nil?)
+      api.batch_create_timeslips timeslips
+    end
+
+    desc 'delete USER PROJECT TASK FROM TO', 'Delete timeslips'
+    def delete user, project, task, from, to
+      from = Date::parse from
+      to = Date::parse to
+      user = match :user, api.users, user, :first_name, :last_name, :email
+      project = match :project, api.projects, project, :name
+      task = match :task, api.tasks(project), task, :name
+
+      puts "Deleting timeslips for #{user.first_name} #{user.last_name} for task '#{task.name}' in project '#{project.name}' between #{from} and #{to} inclusive"
+      api.timeslips(user, project, task, from, to).each do |timeslip|
+        api.delete_timeslip(timeslip)
+      end
+    end
+  end
+
+  class Command < Thor
+    desc "timeslips", "Create, read, update and delete timeslips"
+    subcommand "timeslips", Timeslips
+  end
+end
+
+Freeagent::Command.start
