@@ -1,25 +1,41 @@
 # frozen_string_literal: true
 
 Gem::Specification.new do |spec|
-  spec.name = 'freeagent-cli'
-  spec.version = '0.1'
-  spec.authors = ['Simon Worthington']
-  spec.email = ['simon@register-dynamics.co.uk']
+  git = Proc.new do |*args, **flags, &block|
+    args = args.push *flags.each_pair.map {|k, v| "--#{k.to_s.gsub(/_/, '-')}=#{v}" }
+    IO.popen(['git'].push(*args.map(&:to_s)), chdir: __dir__, err: STDERR) do |pipe|
+      unless block.nil?
+        block.call(pipe)
+      else
+        pipe.readlines(chomp: true)
+      end
+    end
+  end
+
+  spec.name = File.basename(__FILE__).scan(/^[^\.]+/).first
+  spec.authors = git.call(:log, format: '%an').uniq
+  spec.email = git.call(:log, format: '%ae').uniq
+
+  version_tag = 'v?.*'
+  head = git.call(:'rev-parse', 'HEAD').first
+  nearest = git.call(:tag, '--list', version_tag).first
+  release = git.call(:tag, '--list', version_tag, points_at: 'HEAD').any? && !git.call(:status, '-s').any?
+  spec.version = "#{nearest[1..]}#{(release ? '' : ".pre.#{head[0..8]}")}"
 
   readme = File.read('README.txt').split("\n")
   spec.summary = readme.first
   spec.description = readme[1..].join("\n").strip
-  spec.homepage = 'https://www.github.com/register-dynamics/freeagent-cli'
+  spec.homepage = git.call(:remote, :'get-url', 'origin').join
   spec.required_ruby_version = '>= 3.0.0'
 
   spec.metadata['homepage_uri'] = spec.homepage
   spec.metadata['source_code_uri'] = spec.homepage
-  spec.license = 'MIT'
+  spec.license = File.read('LICENSE').scan(/\(([A-Z]+)\)/).first.first
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
   gemspec = File.basename(__FILE__)
-  spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL) do |ls|
+  spec.files = git.call(:'ls-files', '-z') do |ls|
     ls.readlines("\x0", chomp: true).reject do |f|
       (f == gemspec) ||
         f.start_with?(*%w[bin/ test/ spec/ features/ .git .github appveyor Gemfile])
