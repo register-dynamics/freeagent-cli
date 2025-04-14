@@ -134,8 +134,15 @@ module Freeagent
       get_pages('tasks', project: project.url).flat_map(&:tasks)
     end
 
-    def timeslips user, project, task, from, to
-      get_pages('timeslips', user: user.url, project: project.url, task: task.url, from_date: from.to_s, to_date: to.to_s).flat_map(&:timeslips)
+    def timeslips user: nil, project: nil, task: nil, from: nil, to: nil
+      params = [
+        [:user, user && user.url],
+        [:project, project && project.url],
+        [:task, task && task.url],
+        [:from_date, from && from.to_s],
+        [:to_date, to && to.to_s],
+      ].reject {|(k, v)| v.nil?}.to_h
+      get_pages('timeslips', **params).flat_map(&:timeslips)
     end
 
     def create_timeslip user, project, task, dated, hours
