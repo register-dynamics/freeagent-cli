@@ -17,10 +17,8 @@ Gem::Specification.new do |spec|
   spec.email = git.call(:log, format: '%ae').uniq
 
   version_tag = 'v?.*'
-  head = git.call(:'rev-parse', 'HEAD').first
   nearest = git.call(:tag, '--list', version_tag).first
-  release = git.call(:tag, '--list', version_tag, points_at: 'HEAD').any? && !git.call(:status, '-s').any?
-  spec.version = "#{nearest[1..]}#{(release ? '' : ".pre.#{head[0..8]}")}"
+  spec.version = nearest[1..]
 
   readme = File.read('README.txt').split("\n")
   spec.summary = readme.first
