@@ -38,12 +38,12 @@ module Freeagent
       end
     end
 
-    desc 'create USER PROJECT TASK FROM TO', "Create timeslips"
+    desc 'create USER PROJECT TASK [FROM [TO]]', "Create timeslips"
     method_option :hours, aliases: '-h', type: :numeric, default: 8, desc: "Number of hours per day"
     method_option :weekends, aliases: '-w', type: :boolean, default: false, desc: "Create timeslips on Saturdays and Sundays"
-    def create user, project, task, from, to
-      from = Date::parse from
-      to = Date::parse to
+    def create user, project, task, from = nil, to = nil
+      from = from.nil? ? Date::today : Date::parse(from)
+      to = to.nil? ? from : Date::parse(to)
       user = match :user, api.users, user, :first_name, :last_name, :email
       project = match :project, api.projects, project, :name
       task = match :task, api.tasks(project), task, :name
@@ -56,12 +56,12 @@ module Freeagent
       api.batch_create_timeslips timeslips
     end
 
-    desc 'fill USER PROJECT TASK FROM TO', 'Fill remaining hours with new timeslips'
+    desc 'fill USER PROJECT TASK [FROM [TO]]', 'Fill remaining hours with new timeslips'
     method_option :hours, aliases: '-h', type: :numeric, default: 8, desc: "Number of hours per day"
     method_option :weekends, aliases: '-w', type: :boolean, default: false, desc: "Create timeslips on Saturdays and Sundays"
-    def fill user, project, task, from, to
-      from = Date::parse from
-      to = Date::parse to
+    def fill user, project, task, from = nil, to = nil
+      from = from.nil? ? Date::today : Date::parse(from)
+      to = to.nil? ? from : Date::parse(to)
       user = match :user, api.users, user, :first_name, :last_name, :email
       project = match :project, api.projects, project, :name
       task = match :task, api.tasks(project), task, :name
@@ -83,10 +83,10 @@ module Freeagent
       api.batch_create_timeslips timeslips
     end
 
-    desc 'delete USER PROJECT TASK FROM TO', 'Delete timeslips'
-    def delete user, project, task, from, to
-      from = Date::parse from
-      to = Date::parse to
+    desc 'delete USER PROJECT TASK [FROM [TO]]', 'Delete timeslips'
+    def delete user, project, task, from = nil, to = nil
+      from = from.nil? ? Date::today : Date::parse(from)
+      to = to.nil? ? from : Date::parse(to)
       user = match :user, api.users, user, :first_name, :last_name, :email
       project = match :project, api.projects, project, :name
       task = match :task, api.tasks(project), task, :name
