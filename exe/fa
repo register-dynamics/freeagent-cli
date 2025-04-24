@@ -34,13 +34,14 @@ module Freeagent
       task = match :task, api.tasks(project), task, :name
 
       api.timeslips(user: user, project: project, task: task, from: from, to: to).each do |timeslip|
-        puts [Date::parse(timeslip.dated_on).strftime('%a %d %b %Y'), user.email, project.name, task.name, timeslip.hours].join("\t")
+        puts [Date::parse(timeslip.dated_on).strftime('%a %d %b %Y'), user.email, project.name, task.name, timeslip.hours, timeslip.comment].join("\t")
       end
     end
 
     desc 'create USER PROJECT TASK [FROM [TO]]', "Create timeslips"
     method_option :hours, aliases: '-h', type: :numeric, default: 8, desc: "Number of hours per day"
     method_option :weekends, aliases: '-w', type: :boolean, default: false, desc: "Create timeslips on Saturdays and Sundays"
+    method_option :comment, aliases: '-c', type: :string, default: nil, desc: "Comment to add to any created timeslips"
     def create user, project, task, from = nil, to = nil
       from = from.nil? ? Date::today : Date::parse(from)
       to = to.nil? ? from : Date::parse(to)
@@ -51,7 +52,7 @@ module Freeagent
       puts "Creating timeslips for #{user.first_name} #{user.last_name} for task '#{task.name}' in project '#{project.name}' between #{from} and #{to} inclusive"
       timeslips = from.step(to).map do |date|
         next if (date.saturday? || date.sunday?) && !options[:weekends]
-        {'task' => task.url, 'project' => project.url, 'user' => user.url, 'dated_on' => date.to_s, 'hours' => options[:hours]}
+        {'task' => task.url, 'project' => project.url, 'user' => user.url, 'dated_on' => date.to_s, 'hours' => options[:hours], 'comment' => options[:comment]}
       end.reject(&:nil?)
       api.batch_create_timeslips timeslips
     end
@@ -59,6 +60,7 @@ module Freeagent
     desc 'fill USER PROJECT TASK [FROM [TO]]', 'Fill remaining hours with new timeslips'
     method_option :hours, aliases: '-h', type: :numeric, default: 8, desc: "Number of hours per day"
     method_option :weekends, aliases: '-w', type: :boolean, default: false, desc: "Create timeslips on Saturdays and Sundays"
+    method_option :comment, aliases: '-c', type: :string, default: nil, desc: "Comment to add to any created timeslips"
     def fill user, project, task, from = nil, to = nil
       from = from.nil? ? Date::today : Date::parse(from)
       to = to.nil? ? from : Date::parse(to)
@@ -78,7 +80,7 @@ module Freeagent
         adding_hours = options[:hours] - existing_hours
         next if adding_hours <= 0
 
-        {'task' => task.url, 'project' => project.url, 'user' => user.url, 'dated_on' => date.to_s, 'hours' => adding_hours.to_s}
+        {'task' => task.url, 'project' => project.url, 'user' => user.url, 'dated_on' => date.to_s, 'hours' => adding_hours.to_s, 'comment' => options[:comment]}
       end.reject(&:nil?)
       api.batch_create_timeslips timeslips
     end
