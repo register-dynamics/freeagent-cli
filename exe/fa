@@ -18,6 +18,16 @@ def match type, collection, needle, *values
   found.first
 end
 
+def select_task project, task_name
+  tasks = api.tasks(project)
+  if task_name.nil?
+    raise ArgumentError, "Expecting only one task in project #{project.name}, found #{tasks.size}" if not tasks.one?
+    tasks.first
+  else
+    match :task, tasks, task_name, :name
+  end
+end
+
 module Freeagent
   class Timeslips < Thor
     no_commands do
@@ -60,16 +70,16 @@ module Freeagent
       end
     end
 
-    desc 'create USER PROJECT TASK [FROM [TO]]', "Create timeslips"
+    desc 'create USER PROJECT [TASK [FROM [TO]]]', "Create timeslips"
     method_option :hours, aliases: '-h', type: :numeric, default: 8, desc: "Number of hours per day"
     method_option :weekends, aliases: '-w', type: :boolean, default: false, desc: "Create timeslips on Saturdays and Sundays"
     method_option :comment, aliases: '-c', type: :string, default: nil, desc: "Comment to add to any created timeslips"
-    def create user, project, task, from = nil, to = nil
+    def create user, project, task = nil, from = nil, to = nil
       from = from.nil? ? Date::today : Date::parse(from)
       to = to.nil? ? from : Date::parse(to)
       user = match :user, api.users, user, :first_name, :last_name, :email
       project = match :project, api.projects, project, :name
-      task = match :task, api.tasks(project), task, :name
+      task = select_task project, task
 
       puts "Creating timeslips for #{user.first_name} #{user.last_name} for task '#{task.name}' in project '#{project.name}' between #{from} and #{to} inclusive"
       timeslips = from.step(to).map do |date|
@@ -79,16 +89,16 @@ module Freeagent
       api.batch_create_timeslips timeslips
     end
 
-    desc 'fill USER PROJECT TASK [FROM [TO]]', 'Fill remaining hours with new timeslips'
+    desc 'fill USER PROJECT [TASK [FROM [TO]]]', 'Fill remaining hours with new timeslips'
     method_option :hours, aliases: '-h', type: :numeric, default: 8, desc: "Number of hours per day"
     method_option :weekends, aliases: '-w', type: :boolean, default: false, desc: "Create timeslips on Saturdays and Sundays"
     method_option :comment, aliases: '-c', type: :string, default: nil, desc: "Comment to add to any created timeslips"
-    def fill user, project, task, from = nil, to = nil
+    def fill user, project, task = nil, from = nil, to = nil
       from = from.nil? ? Date::today : Date::parse(from)
       to = to.nil? ? from : Date::parse(to)
       user = match :user, api.users, user, :first_name, :last_name, :email
       project = match :project, api.projects, project, :name
-      task = match :task, api.tasks(project), task, :name
+      task = select_task project, task
 
       existing = api.timeslips(user: user, from: from, to: to).reduce(Hash.new) do |hash, timeslip|
         date = Date::parse timeslip.dated_on
