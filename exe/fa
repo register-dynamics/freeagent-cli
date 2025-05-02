@@ -26,16 +26,37 @@ module Freeagent
       end
     end
 
-    desc 'list USER PROJECT TASK FROM TO', "List timeslips"
-    def list user, project, task, from, to
-      from = Date::parse from
-      to = Date::parse to
-      user = match :user, api.users, user, :first_name, :last_name, :email
-      project = match :project, api.projects, project, :name
-      task = match :task, api.tasks(project), task, :name
+    desc 'list [-U USER] [-P PROJECT [-T TASK]] [-f FROM] [-t TO]', "List timeslips"
+    method_option :user, aliases: '-U', type: :string, default: nil, desc: 'Name or email of a user'
+    method_option :project, aliases: '-P', type: :string, default: nil, desc: 'Name of a project'
+    method_option :task, aliases: '-T', type: :string, default: nil, desc: 'Name of a task within the project'
+    method_option :from, aliases: '-f', type: :string, default: nil, desc: 'Date to list timeslips from'
+    method_option :to, aliases: '-t', type: :string, default: nil, desc: 'Date to list timeslips to'
+    def list
+      raise ArgumentError, '--project must be specified if --task if used' if options[:project].nil? && !options[:task].nil?
+
+      from = options[:from].nil? ? nil : Date::parse(options[:from])
+      to = options[:to].nil? ? nil : Date::parse(options[:to])
+      user = options[:user].nil? ? nil : match(:user, api.users, options[:user], :first_name, :last_name, :email)
+      project = options[:project].nil? ? nil : match(:project, api.projects, options[:project], :name)
+      task = options[:task].nil? ? nil : match(:task, api.tasks(project), options[:task], :name)
+
+      users = Hash.new {|cache, url| cache[url] = api.user url.split('/').last }
+      users[user.url] = user unless user.nil?
+      projects = Hash.new {|cache, url| cache[url] = api.project url.split('/').last }
+      projects[project.url] = project unless project.nil?
+      tasks = Hash.new {|cache, url| cache[url] = api.task url.split('/').last }
+      tasks[task.url] = task unless task.nil?
 
       api.timeslips(user: user, project: project, task: task, from: from, to: to).each do |timeslip|
-        puts [Date::parse(timeslip.dated_on).strftime('%a %d %b %Y'), user.email, project.name, task.name, timeslip.hours, timeslip.comment].join("\t")
+        puts [
+          Date::parse(timeslip.dated_on).strftime('%a %d %b %Y'),
+          users[timeslip.user].email,
+          projects[timeslip.project].name,
+          tasks[timeslip.task].name,
+          timeslip.hours,
+          timeslip.comment
+        ].join("\t")
       end
     end
 

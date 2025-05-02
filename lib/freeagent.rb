@@ -126,8 +126,16 @@ module Freeagent
       get('payroll_profiles', year).profiles
     end
 
+    def project id
+      get('projects', id).project
+    end
+
     def projects
       get_pages('projects').flat_map(&:projects)
+    end
+
+    def task id
+      get('tasks', id).task
     end
 
     def tasks project
