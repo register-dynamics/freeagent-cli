@@ -17,7 +17,7 @@ Gem::Specification.new do |spec|
   spec.email = git.call(:log, format: '%ae').uniq
 
   version_tag = 'v?.*'
-  nearest = git.call(:tag, '--list', version_tag).first
+  nearest = git.call(:tag, '--list', version_tag, sort: 'version:refname').last
   spec.version = nearest[1..]
 
   readme = File.read('README.txt').split("\n")
