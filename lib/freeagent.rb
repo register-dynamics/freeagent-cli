@@ -63,7 +63,7 @@ module Freeagent
     def get *parts, **params
       relatives = parts.map(&:to_s).join('/')
       uri = URI.parse(relatives)
-      puts "GET #{uri}"
+      STDERR.puts "GET #{uri}#{params.any? ? '?' + URI.encode_www_form(params) : ''}"
       res = @token.get(uri, params: params, headers: {'Accept': 'application/json'})
       data = res.parsed
       if res.headers.include? 'Link'
@@ -97,7 +97,7 @@ module Freeagent
       data = parts.pop
       relatives = parts.map(&:to_s).join('/')
       uri = URI.parse(relatives)
-      puts "POST #{uri}"
+      STDERR.puts "POST #{uri}"
       body = data.to_json
       @token.post(uri, body: body, params: params, headers: {'Content-Type': 'application/json', 'Accept': 'application/json'}).parsed
     end
@@ -105,7 +105,7 @@ module Freeagent
     def delete *parts, **params
       relatives = parts.map(&:to_s).join('/')
       uri = URI.parse(relatives)
-      puts "DELETE #{uri}"
+      STDERR.puts "DELETE #{uri}"
       @token.delete(uri, params: params, headers: {'Accept': 'application/json'})
     end
 
@@ -172,12 +172,40 @@ module Freeagent
       delete('timeslips', id)
     end
 
+    def invoices contact: nil, project: nil, view: nil, updated_since: nil, sort: nil
+      params = [
+        [:contact, contact && contact.url],
+        [:project, project && project.url],
+        [:view, view && view.to_s],
+        [:updated_since, updated_since && updated_since.to_s],
+        [:sort, sort && sort.to_s],
+      ].reject {|k, v| v.nil? }.to_h
+      get_pages('invoices', **params).flat_map(&:invoices)
+    end
+
+    def invoice id
+      get('invoices', id).invoice
+    end
+
     def users
       get_pages('users').flat_map(&:users)
     end
 
     def user id
       get('users', id).user
+    end
+
+    def contacts view: nil, updated_since: nil, sort: nil
+      params = [
+        [:view, view && view.to_s],
+        [:updated_since, updated_since && updated_since.to_s],
+        [:sort, sort && sort.to_s],
+      ].reject {|k, v| v.nil? }.to_h
+      get_pages('contacts', **params).flat_map(&:contacts)
+    end
+
+    def contact
+      get('contacts', id).contact
     end
 
     def profile year, user

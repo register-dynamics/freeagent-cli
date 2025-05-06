@@ -132,9 +132,69 @@ module Freeagent
     end
   end
 
+  class Invoices < Thor
+    no_commands do
+      def api
+        @api ||= API.new
+      end
+
+      def contacts
+        @contacts ||= Hash.new {|cache, url| cache[url] = api.contact url.split('/').last }
+      end
+
+      def projects
+        @projects ||= Hash.new {|cache, url| cache[url] = api.project url.split('/').last }
+      end
+
+      def human invoice
+        [
+          Date::parse(invoice.dated_on).strftime('%a %d %b %Y'),
+          Date::parse(invoice.due_on).strftime('%a %d %b %Y'),
+          invoice.contact_name,
+          projects[invoice.project].name,
+          invoice.reference,
+          invoice.total_value,
+          invoice.net_value,
+        ].join("\t")
+      end
+    end
+
+    STATUSES = %i[ all recent_open_or_overdue open overdue open_or_overdue draft paid scheduled_to_email thank_you_emails reminder_emails ]
+
+    desc 'list [-C CONTACT] [-P PROJECT] [-S STATUS] [-f FROM] [-t TO]', "List invoices"
+    method_option :contact, aliases: '-C', type: :string, default: nil, desc: "Limit to a contact, identified by name or email"
+    method_option :project, aliases: '-P', type: :string, default: nil, desc: "Limit to a project, identified by name"
+    method_option :status, aliases: '-S', type: :string, default: nil, desc: "Invoices that match a status, one of: #{STATUSES.join(', ')}"
+    method_option :from, aliases: '-f', type: :string, default: nil, desc: 'Date to list invoices from'
+    method_option :to, aliases: '-t', type: :string, default: nil, desc: 'Date to list invoices to'
+    method_option :format, type: :string, default: 'human', desc: 'Output format, one of human or json'
+    def list
+      from = options[:from].nil? ? nil : Date::parse(options[:from])
+      to = options[:to].nil? ? nil : Date::parse(options[:to])
+      status = options[:status].nil? ? nil : match(:status, STATUSES, options[:status], :to_s)
+      contact = options[:contact].nil? ? nil : match(:contact, api.contacts, options[:contact], :first_name, :last_name, :organisation_name, :email, :billing_email)
+      project = options[:project].nil? ? nil : match(:project, api.projects, options[:project], :name)
+
+      contacts[contact.url] = contact unless contact.nil?
+      projects[project.url] = project unless project.nil?
+      api.invoices(contact: contact, project: project, view: status).select do |invoice|
+        from.nil? || Date::parse(invoice.dated_on) >= from
+      end.each do |invoice|
+        puts case options[:format].downcase
+        when 'human'; human(invoice)
+        when 'json'; invoice.to_json
+        else raise ArgumentError, "unknown output format #{options[:format]}"
+        end
+      end
+    end
+  end
+
   class Command < Thor
     desc "timeslips", "Create, read, update and delete timeslips"
     subcommand "timeslips", Timeslips
+
+    desc "invoices", "Create, read, update and delete invoices"
+    subcommand "invoices", Invoices
   end
 end
 
