@@ -130,8 +130,11 @@ module Freeagent
       get('projects', id).project
     end
 
-    def projects
-      get_pages('projects').flat_map(&:projects)
+    def projects contact: nil
+      params = [
+        [:contact, contact && contact.url]
+      ].reject {|(k ,v)| v.nil?}.to_h
+      get_pages('projects', **params).flat_map(&:projects)
     end
 
     def task id

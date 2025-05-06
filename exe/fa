@@ -132,6 +132,47 @@ module Freeagent
     end
   end
 
+  class Projects < Thor
+    no_commands do
+      def api
+        @api ||= API.new
+      end
+
+      def contacts
+        @contacts ||= Hash.new {|cache, url| cache[url] = api.contact url.split('/').last }
+      end
+
+      def human project
+        [
+          project.name,
+          project.contact_name,
+          project.status,
+          project.starts_on,
+          project.ends_on,
+          project.budget
+      ].join("\t")
+      end
+    end
+
+    desc 'list [-C CONTACT] [NAME [NAME ...]]', 'List projects'
+    method_option :contact, aliases: '-C', type: :string, default: nil, desc: "Limit to a contact, identified by name or email"
+    method_option :format, type: :string, default: 'human', desc: 'Output format, one of human or json'
+    def list *names
+      contact = options[:contact].nil? ? nil : match(:contact, api.contacts, options[:contact], :first_name, :last_name, :organisation_name, :email, :billing_email)
+      contacts[contact.url] = contact unless contact.nil?
+
+      api.projects(contact: contact).select do |project|
+        names.empty? || names.include?(project.name)
+      end.each do |project|
+        puts case options[:format].downcase
+        when 'human'; human(project)
+        when 'json'; project.to_json
+        else raise ArgumentError, "unknown output format #{options[:format]}"
+        end
+      end
+    end
+  end
+
   class Invoices < Thor
     no_commands do
       def api
@@ -192,6 +233,9 @@ module Freeagent
   class Command < Thor
     desc "timeslips", "Create, read, update and delete timeslips"
     subcommand "timeslips", Timeslips
+
+    desc "projects", "Create, read, update and delete projects"
+    subcommand "projects", Projects
 
     desc "invoices", "Create, read, update and delete invoices"
     subcommand "invoices", Invoices
