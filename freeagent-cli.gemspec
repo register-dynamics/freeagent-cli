@@ -48,6 +48,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'webrick', '~> 1.9'
   spec.add_dependency 'thor', '~> 1.3'
   spec.add_dependency 'dotenv', '> 2.1.2'
+  spec.add_dependency 'snaky_hash', '~> 2.0'
 
   spec.add_development_dependency 'rake', '~> 13'
 
