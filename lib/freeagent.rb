@@ -214,5 +214,13 @@ module Freeagent
     def profile year, user
       get('payroll_profiles', year, user: user)
     end
+
+    def notes contact: nil, project: nil
+      params = [
+        [:contact, contact && contact.to_s],
+        [:project, project && project.to_s],
+      ].reject {|k, v| v.nil? }.to_h
+      get_pages('notes', **params).flat_map(&:notes)
+    end
   end
 end

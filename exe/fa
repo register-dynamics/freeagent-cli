@@ -199,13 +199,15 @@ module Freeagent
           project.status,
           project.starts_on,
           project.ends_on,
-          project.budget
+          project.budget,
+          project.notes && project.notes.map(&:note).join('; '),
       ].join("\t")
       end
     end
 
     desc 'list [-C CONTACT] [NAME [NAME ...]]', 'List projects'
     method_option :contact, aliases: '-C', type: :string, default: nil, desc: "Limit to a contact, identified by name or email"
+    method_option :notes, type: :boolean, default: true, desc: 'Include notes in output'
     method_option :format, type: :string, default: 'human', desc: 'Output format, one of human or json'
     def list *names
       contact = options[:contact].nil? ? nil : match(:contact, api.contacts, options[:contact], :first_name, :last_name, :organisation_name, :email, :billing_email)
@@ -214,6 +216,10 @@ module Freeagent
       api.projects(contact: contact).select do |project|
         names.empty? || names.include?(project.name)
       end.each do |project|
+        if options[:notes]
+          project.notes = api.notes(project: project.url)
+        end
+
         puts case options[:format].downcase
         when 'human'; human(project)
         when 'json'; project.to_json
