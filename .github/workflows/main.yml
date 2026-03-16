@@ -30,3 +30,7 @@ jobs:
 
     - name: Run the default task
       run: bundle exec rake
+
+    - uses: actions/upload-artifact@v7
+      with:
+        path: pkg/
