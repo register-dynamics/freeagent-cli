@@ -207,7 +207,7 @@ module Freeagent
       get_pages('contacts', **params).flat_map(&:contacts)
     end
 
-    def contact
+    def contact id
       get('contacts', id).contact
     end
 

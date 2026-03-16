@@ -216,8 +216,10 @@ module Freeagent
       api.projects(contact: contact).select do |project|
         names.empty? || names.include?(project.name)
       end.each do |project|
+        project.contact = contacts[project.contact]
         if options[:notes]
           project.notes = api.notes(project: project.url)
+          project.contact.notes = api.notes(contact: project.contact.url)
         end
 
         puts case options[:format].downcase
