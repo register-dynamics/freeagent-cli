@@ -167,7 +167,7 @@ module Freeagent
     end
 
     def batch_create_timeslips timeslips
-      post('timeslips', {'timeslips' => timeslips})
+      post('timeslips', {'timeslips' => timeslips.to_a})
     end
 
     def delete_timeslip timeslip

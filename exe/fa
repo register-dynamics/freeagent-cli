@@ -158,6 +158,37 @@ module Freeagent
       end
     end
 
+    desc 'import [-U USER] [-P PROJECT [-T TASK]]', 'Import timeslips'
+    method_option :user, aliases: '-U', type: :string, default: nil, desc: 'Name or email of a user to override in input data'
+    method_option :project, aliases: '-P', type: :string, default: nil, desc: 'Name of a project to override in input data'
+    method_option :task, aliases: '-T', type: :string, default: nil, desc: 'Name of a task within the project to override in input data'
+    method_option :format, type: :string, default: 'human', desc: 'Output format, one of human or json'
+    def import
+      raise ArgumentError, '--project must be specified if --task if used' if options[:project].nil? && !options[:task].nil?
+
+      user = options[:user].nil? ? nil : match(:user, api.users, options[:user], :first_name, :last_name, :email)
+      project = options[:project].nil? ? nil : match(:project, api.projects, options[:project], :name)
+      task = options[:task].nil? ? nil : match(:task, api.tasks(project), options[:task], :name)
+
+      users[user.url] = user unless user.nil?
+      projects[project.url] = project unless project.nil?
+      tasks[task.url] = task unless task.nil?
+
+      api.batch_create_timeslips(JSON.parse(STDIN.read, object_class: SnakyHash::SymbolKeyed).map do |timeslip|
+        timeslip.user = user.url unless user.nil?
+        timeslip.project = project.url unless project.nil?
+        timeslip.task = task.url unless task.nil?
+
+        puts case options[:format].downcase
+        when 'human'; human(timeslip)
+        when 'json'; timeslip.to_json
+        else raise ArgumentError, "unknown output format #{options[:format]}"
+        end
+
+        timeslip
+      end)
+    end
+
     desc 'delete USER PROJECT TASK [FROM [TO]]', 'Delete timeslips'
     method_option :format, type: :string, default: 'human', desc: 'Output format, one of human or json'
     def delete user, project, task, from = nil, to = nil
